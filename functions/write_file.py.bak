@@ -1,0 +1,53 @@
+import os
+
+from google.genai import types
+
+schema_write_file = types.FunctionDeclaration(
+    name="write_file",
+    description="Create or overwrite a file with specific content. Automatically creates parent directories if they are missing.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "working_directory": types.Schema(
+                type=types.Type.STRING,
+                description="The permitted root directory for file operations (e.g., 'calculator').",
+            ),
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path where the file should be saved, relative to the working directory.",
+            ),
+            "content": types.Schema(
+                type=types.Type.STRING,
+                description="The full text content to write into the file.",
+            ),
+        },
+        required=["working_directory", "file_path", "content"]
+    ),
+)
+
+def write_file(working_directory, file_path, content):
+    try:
+        # Normalize and resolve paths
+        abs_working_dir = os.path.abspath(working_directory)
+        full_path = os.path.abspath(os.path.join(abs_working_dir, file_path))
+
+        # 1. Validate working directory bounds
+        if not full_path.startswith(abs_working_dir):
+            return f'Error: Cannot write to "{file_path}" as it is outside the permitted working directory'
+
+        # 2. Check if the target is an existing directory
+        if os.path.isdir(full_path):
+            return f'Error: Cannot write to "{file_path}" as it is a directory'
+
+        # 3. Ensure parent directories exist
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        # 4. Write the file
+        with open(full_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        return f'Successfully wrote to "{file_path}" ({len(content)} characters written)'
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
